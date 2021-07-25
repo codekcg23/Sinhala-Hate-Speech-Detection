@@ -5,7 +5,7 @@ __pycache__/
 .neptune/
 # C extensions
 *.so
-
+Background study/
 # Distribution / packaging
 .Python
 build/

@@ -1,3 +1,21 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.svm import SVC
+from sklearn.metrics import classification_report
+import sklearn.metrics as metrics
+#from sklearn.metrics import accuracy_score, f1_score, precision_score,roc_curve,roc_auc_score,confusion_matrix,recall_score
+#from sklearn import preprocessing
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import Pipeline
+import re
+import gensim
+import emoji
+
 
 def removePunctuation(txt):
     """
@@ -31,7 +49,7 @@ def removeEmoji(txt):
     :param text: text to replace emojis
     :return: emoji removed text
     """
-    import emoji
+
     return emoji.get_emoji_regexp().sub(u'', txt)
 
 
@@ -51,7 +69,7 @@ def removeRetweetState(txt):
     :param text: text
     :return: text removed retweets state
     """
-    import re
+
     return re.sub(r'RT @\w*: ', '', txt)
 
 
@@ -61,13 +79,12 @@ def removeMention(txt):
     :param text: text to replace username
     :return: username removed text
     """
-    import re
+
     return re.sub(r'@\w*', 'PERSON', txt)
 
 
 def removeEnglishWords(txt):
 
-    import re
     return re.sub(r'[a-zA-Z\s]+', '', txt)
 
 
@@ -79,7 +96,6 @@ def removeSentenceContainsEnglish(df, col):
     :return: Dataframe contains non englsih charachters
     """
 
-    import re
     print("Input dataframe size = ", len(df))
     for s in df[col]:
         english_list = re.findall(r'[a-zA-Z]+', s)
@@ -91,9 +107,17 @@ def removeSentenceContainsEnglish(df, col):
     print("Cleaned dataframe size - removed Strings contain Englishs letters ", len(df))
     return df
 
+# remove stop words
+
+
+def removeStopWords(txt, stop_words):
+    #lst_text = text.split()
+    #lst_text = [word for word in lst_text if word not in lst_stopwords]
+    return ''.join([(w if w not in stop_words else " ") for w in txt])
+
 
 def identifySinhalaText(txt):
-    import re
+
     sinhala_list = re.findall(r'[\u0D80-\u0DFF]+', txt)
     return sinhala_list
 # def ignore_characters(txt):
@@ -122,8 +146,7 @@ def preprocess(df, col):
 
 
 def confusion_Matrix(y_test, y_pred):
-    import matplotlib.pyplot as plt
-    import pandas as pd
+
     confusionMatrix = pd.crosstab(y_test, y_pred, rownames=[
                                   "Actual"], colnames=["Predicted"])
     print(confusionMatrix)
@@ -164,63 +187,11 @@ def PlotRocAuc(y_test, y_pred, color, model_name):
     fig.show()
 
 
-def result(y_test, y_pred):
-    import sklearn.metrics as metrics
-    import matplotlib.pyplot as plt
-    import seaborn as sns
-    import numpy as np
-
-    classes = np.unique(y_test)
-    #y_test_array = pd.get_dummies(y_test, drop_first=False).values
-    ## Accuracy, Precision, Recall
-    accuracy = metrics.accuracy_score(y_test, y_pred)
-    auc = metrics.roc_auc_score(y_test, y_pred)
-    precision = metrics.precision_score(y_test, y_pred)
-    recall = metrics.recall_score(y_true, y_pred)
-    f1_score = metrics.f1_score(y_test, y_pred)
-    print("Accuracy:",  round(accuracy, 2))
-    print("Auc:", round(auc, 2))
-    print("Precsion:", round(precision, 2))
-    print("f1_score:", round(f1_score, 2))
-    print("recall:", round(recall, 2))
-    print("Detail:")
-    print(metrics.classification_report(y_test, y_pred))
-
-    # Plot confusion matrix
-    cm = metrics.confusion_matrix(y_test, y_pred)
-    fig, ax = plt.subplots()
-    sns.heatmap(cm, annot=True, fmt='d', ax=ax, cmap=plt.cm.Blues, cbar=False)
-    ax.set(xlabel="Predicted", ylabel="Actual", xticklabels=classes,
-           yticklabels=classes, title="Confusion matrix")
-    plt.yticks(rotation=0)
-
-    fig, ax = plt.subplots(nrows=1, ncols=2)
-    # Plot roc
-    for i in range(len(classes)):
-        fpr, tpr, thresholds = metrics.roc_curve(y_test[:, i], y_pred[:, i])
-        ax[0].plot(fpr, tpr, lw=3,
-                   label='{0} (area={1:0.2f})'.format(
-                       classes[i], metrics.auc(fpr, tpr))
-                   )
-    ax[0].plot([0, 1], [0, 1], color='navy', lw=3, linestyle='--')
-    ax[0].set(xlim=[-0.05, 1.0], ylim=[0.0, 1.05],
-              xlabel='False Positive Rate',
-              ylabel="True Positive Rate (Recall)",
-              title="Receiver operating characteristic")
-    ax[0].legend(loc="lower right")
-    ax[0].grid(True)
-
-    # Plot precision-recall curve
-    for i in range(len(classes)):
-        precision, recall, thresholds = metrics.precision_recall_curve(
-            y_test[:, i], y_pred[:, i])
-        ax[1].plot(recall, precision, lw=3,
-                   label='{0} (area={1:0.2f})'.format(classes[i],
-                                                      metrics.auc(recall, precision))
-                   )
-    ax[1].set(xlim=[0.0, 1.05], ylim=[0.0, 1.05], xlabel='Recall',
-              ylabel="Precision", title="Precision-Recall curve")
-    ax[1].legend(loc="best")
-    ax[1].grid(True)
-    plt.show()
-    return accuracy, f1_score, recall, precision, auc
+def prepare_dataset(df, name):
+    df = preprocess(df, 'comment')
+    print(name, len(df))
+    X_train, X_test, Y_train, Y_test = train_test_split(
+        df['cleaned'], df['label'], test_size=0.3, random_state=0, stratify=df['label'].values)
+    print("X train {} Y train {} X test {} Y test {}".format(
+        X_train.shape, Y_train.shape, X_test.shape, Y_test.shape))
+    return (X_train, X_test, Y_train, Y_test)

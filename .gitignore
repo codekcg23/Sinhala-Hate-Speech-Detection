@@ -6,6 +6,7 @@ __pycache__/
 # C extensions
 *.so
 Background study/
+Embedding_models/
 # Distribution / packaging
 .Python
 build/

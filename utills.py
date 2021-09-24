@@ -190,17 +190,22 @@ def stemWords(txt):
     # return ' '.join(text)
 
 
-def custom_stemmer(txt):
+def custom_stemmer_shorterSuffix(txt):
     # custom stemmer longest prefix len >5
+    import sys
+    sys.path.insert(1, 'G:\\Github\\Sinhala-Hate-Speech-Detection')
+    import sinhala_stemmer
     stemmer = sinhala_stemmer.SinhalaStemmer()
     return ' '.join([stemmer.stem(w)[0] for w in txt.split()])
-    # w_list=[]
-    # for w in txt3.split():
 
-    #     results = stemmer.stem(w)[0]
-    # #results = preprocess(w)
-#     w_list.append(results)
-# print(' '.join(w_list))
+
+def custom_stemmer_longerSuffix(txt):
+    import sys
+    sys.path.insert(1, 'G:\\Github\\Sinhala-Hate-Speech-Detection')
+    import sinhala_stemmer
+    # custom stemmer longest prefix len >5
+    stemmer = sinhala_stemmer.SinhalaStemmer()
+    return ' '.join([stemmer.stem(w, True)[0] for w in txt.split()])
 
 # def text_normalize():
 
@@ -229,7 +234,7 @@ def removeUnicode(txt):
 # def NER():
 
 
-def preprocessor(df, col, seperator=False, url=False, mention=False, number=False, non_sinhala=False, special_characters=False, puntuation=False, puntuation_special=False, emoji_remove=False,  stop_word=False, stem=False, custom_stem=False):
+def preprocessor(df, col, seperator=True, url=True, mention=True, number=True, non_sinhala=True, special_characters=True, puntuation=True, puntuation_special=False, emoji_remove=True,  stop_word=False, stem=False, custom_stem_shorter=False, custom_stem_longer=True):
 
    # if(tokenize):
     df['cleaned'] = df[col]
@@ -242,9 +247,6 @@ def preprocessor(df, col, seperator=False, url=False, mention=False, number=Fals
     if(mention):
         df['cleaned'] = df['cleaned'].apply(lambda x: removeMention(x))
         print('-mention-')
-    if(number):
-        df['cleaned'] = df['cleaned'].apply(lambda x: removeNumber(x))
-        print('-number-')
     if(non_sinhala):
         df['cleaned'] = df['cleaned'].apply(lambda x: removeEnglishWords(x))
         print('-non_sinhala-')
@@ -263,17 +265,24 @@ def preprocessor(df, col, seperator=False, url=False, mention=False, number=Fals
         df['cleaned'] = df['cleaned'].apply(lambda x: removeEmoji(x))
         print('-emoji remove-')
     # if(emoji_replace):
-
+    if(number):
+        df['cleaned'] = df['cleaned'].apply(lambda x: removeNumber(x))
+        print('-number-')
     if(stop_word):
         df['cleaned'] = df['cleaned'].apply(lambda x: removeStopWords(x))
         print('-stop word-')
-    df['cleaned'] = df['cleaned'].apply(lambda x: removeUnicode(x))
+    #df['cleaned'] = df['cleaned'].apply(lambda x: removeUnicode(x))
     if(stem):
         df['cleaned'] = df['cleaned'].apply(lambda x: stemWords(x))
         print('-stem-')
-    if(custom_stem):
-        df['cleaned'] = df['cleaned'].apply(lambda x: custom_stemmer(x))
-        print('-custome stemmer-')
+    if(custom_stem_shorter):
+        df['cleaned'] = df['cleaned'].apply(
+            lambda x: custom_stemmer_shorterSuffix(x))
+        print('-custome stemmer shorter suffix-')
+    if(custom_stem_longer):
+        df['cleaned'] = df['cleaned'].apply(
+            lambda x: custom_stemmer_longerSuffix(x))
+        print('-custome stemmer longer suffix-')
     # if(text_normalize):
 
     return df

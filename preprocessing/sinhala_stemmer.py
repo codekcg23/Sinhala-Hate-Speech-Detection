@@ -30,11 +30,14 @@ class SinhalaStemmer():
         self.stem_dictionary = _load_stem_dictionary()
         self.suffixes = _load_suffixes()
 
-    def stem(self, word):
+    def stem(self, word,isLongerPrefix=False):
         if word in self.stem_dictionary:
             return self.stem_dictionary[word]
         else:
-            suffix = self.suffixes.longest_prefix(word[::-1]).key
+            if(isLongerPrefix):
+                suffix = self.suffixes.longest_prefix(word[::-1]).key
+            else:
+                suffix = self.suffixes.shortest_prefix(word[::-1]).key
             #word_list = [word[0:-len(s)] for s in self.suffixes]
             # for w in word_list:
 

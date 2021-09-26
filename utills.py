@@ -373,7 +373,7 @@ def prepare_dataset(df, name):
     return (X_train, X_test, Y_train, Y_test)
 
 
-def log_result(Y_test, Y_pred, name, df_name, feature_name, model_name):
+def log_result(Y_test, Y_pred, name, df_name, feature_name, model_name,tag):
 
     import neptune
     from neptunecontrib.monitoring.metrics import expand_prediction, log_class_metrics, log_binary_classification_metrics, log_classification_report, log_confusion_matrix, log_prediction_distribution
@@ -389,7 +389,7 @@ def log_result(Y_test, Y_pred, name, df_name, feature_name, model_name):
 
     print("========= Eperiment - ", name, " =========")
     neptune.create_experiment(name)
-    neptune.append_tag([df_name, feature_name, model_name, name])
+    neptune.append_tag([tag,df_name, feature_name, model_name, name])
 
     log_class_metrics(Y_test, Y_pred)
     log_confusion_matrix(Y_test, Y_pred)
@@ -402,7 +402,9 @@ def classifier_feature(datasets, models, features):
     for df_name, df in datasets.items():
         df_result = pd.DataFrame(
             columns=['Accuracy', 'F1-score', 'Recall', 'Precision', 'AUC'])
-        X_train, X_test, Y_train, Y_test = utills.prepare_dataset(df, df_name)
+        #X_train, X_test, Y_train, Y_test = utills.prepare_dataset(df, df_name)
+        X_train, X_test, Y_train, Y_test = train_test_split(
+        df['cleaned'], df['label'], test_size=0.3, random_state=0, stratify=df['label'].values)
         for feature_name, feature in features.items():
             feature_result = pd.DataFrame(
                 columns=['Accuracy', 'F1-score', 'Recall', 'Precision', 'AUC'])
@@ -585,3 +587,23 @@ def RF(X_train, X_test, Y_train):
     Y_pred = rf.predict(X_test)
     Y_prob = rf.predict_proba(X_test)[:, 1]
     return Y_pred
+
+
+def word_avg_vector(model,words_list):
+    if len(words_list) < 1:  # whole sentence has no words or nan
+        return np.zeros(300)
+    else:
+        vectorized = [model[word] if word in model else np.random.rand(300) for word in words_list]
+    # doc = [word for word in doc if word in model.wv.index_to_key else np.random.rand(k)]
+    return np.mean(vectorized, axis=0)
+
+# TODO function for word_tfidf_avg_vector
+
+
+def get_embedding(df,model):
+    # TODO add option to select TFIDF vs mean embedding
+    # avg vector
+    embeddings = df.apply(lambda x: word_avg_vector(model,x))
+
+    # tfidf weighted vector
+    return list(embeddings)

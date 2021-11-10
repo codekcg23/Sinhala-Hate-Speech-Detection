@@ -30,7 +30,7 @@ class SinhalaStemmer():
         self.stem_dictionary = _load_stem_dictionary()
         self.suffixes = _load_suffixes()
 
-    def stem(self, word,isLongerPrefix=False):
+    def stem(self, word,isLongerPrefix=False,word_len=5):
         if word in self.stem_dictionary:
             return self.stem_dictionary[word]
         else:
@@ -41,7 +41,7 @@ class SinhalaStemmer():
             #word_list = [word[0:-len(s)] for s in self.suffixes]
             # for w in word_list:
 
-            if suffix is not None and len(word) > 5:
+            if suffix is not None and len(word) > word_len:
                 return word[0:-len(suffix)], word[len(word) - len(suffix):]
             else:
                 return word, ''

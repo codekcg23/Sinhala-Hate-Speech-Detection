@@ -190,22 +190,22 @@ def stemWords(txt):
     # return ' '.join(text)
 
 
-def custom_stemmer_shorterSuffix(txt):
+def custom_stemmer_shorterSuffix(txt, word_len=5):
     # custom stemmer longest prefix len >5
     import sys
     sys.path.insert(1, 'G:\\Github\\Sinhala-Hate-Speech-Detection')
     import sinhala_stemmer
     stemmer = sinhala_stemmer.SinhalaStemmer()
-    return ' '.join([stemmer.stem(w)[0] for w in txt.split()])
+    return ' '.join([stemmer.stem(w, False, word_len)[0] for w in txt.split()])
 
 
-def custom_stemmer_longerSuffix(txt):
+def custom_stemmer_longerSuffix(txt, word_len=5):
     import sys
     sys.path.insert(1, 'G:\\Github\\Sinhala-Hate-Speech-Detection')
     import sinhala_stemmer
     # custom stemmer longest prefix len >5
     stemmer = sinhala_stemmer.SinhalaStemmer()
-    return ' '.join([stemmer.stem(w, True)[0] for w in txt.split()])
+    return ' '.join([stemmer.stem(w, True, word_len)[0] for w in txt.split()])
 
 # def text_normalize():
 
@@ -221,7 +221,7 @@ def removeStopWords(txt):
     for w in remove_stop_words:
         if w in stop_words:
             stop_words.remove(w)
-    return ' '.join([(w if w not in stop_words else ' ') for w in txt.split()])
+    return ''.join([(w if w not in stop_words else ' ') for w in txt.split()])
 
 
 def removeUnicode(txt):
@@ -234,7 +234,11 @@ def removeUnicode(txt):
 # def NER():
 
 
-def preprocessor(df, col, seperator=True, url=True, mention=True, number=True, non_sinhala=True, special_characters=True, puntuation=True, puntuation_special=False, emoji_remove=True,  stop_word=False, stem=False, custom_stem_shorter=False, custom_stem_longer=True):
+def removeExtraSpaces(txt):
+    return ' '.join([w for w in txt.split()])
+
+
+def preprocessor(df, col, seperator=True, url=True, mention=True, number=True, non_sinhala=True, special_characters=True, puntuation=True, puntuation_special=False, emoji_remove=True,  stop_word=False, stem=False, custom_stem_shorter=False, custom_stem_longer=False):
 
    # if(tokenize):
     df['cleaned'] = df[col]
@@ -306,16 +310,17 @@ def preprocess(df, col):
 
     # print(df['cleaned'].head(n=15))
     df['cleaned'] = df[col].apply(lambda x: sentenceSeperator(x))
-    df['cleaned'] = df['cleaned'].apply(lambda x: removeEmoji(x))
     df['cleaned'] = df['cleaned'].apply(lambda x: removeUrl(x))
+    df['cleaned'] = df['cleaned'].apply(lambda x: removeMention(x))
     df['cleaned'] = df['cleaned'].apply(lambda x: removeUnicode(x))
     df['cleaned'] = df['cleaned'].apply(lambda x: removeRetweetState(x))
-    df['cleaned'] = df['cleaned'].apply(lambda x: removeMention(x))
     df['cleaned'] = df['cleaned'].apply(lambda x: removeEnglishWords(x))
     df['cleaned'] = df['cleaned'].apply(lambda x: removeSpecialCharacters(x))
-    df['cleaned'] = df['cleaned'].apply(lambda x: removePunctuation(x))
     # print(df['cleaned'].head(n=15))
+    df['cleaned'] = df['cleaned'].apply(lambda x: removeEmoji(x))
     df['cleaned'] = df['cleaned'].apply(lambda x: removeNumber(x))
+    df['cleaned'] = df['cleaned'].apply(lambda x: removePunctuation(x))
+    df['cleaned'] = df['cleaned'].apply(lambda x: removeExtraSpaces(x))
     # print(df['cleaned'].head(n=15))
 
     return df
@@ -373,7 +378,7 @@ def prepare_dataset(df, name):
     return (X_train, X_test, Y_train, Y_test)
 
 
-def log_result(Y_test, Y_pred, name, df_name, feature_name, model_name,tag):
+def log_result(Y_test, Y_pred, name, df_name, feature_name, model_name, tag):
 
     import neptune
     from neptunecontrib.monitoring.metrics import expand_prediction, log_class_metrics, log_binary_classification_metrics, log_classification_report, log_confusion_matrix, log_prediction_distribution
@@ -389,7 +394,7 @@ def log_result(Y_test, Y_pred, name, df_name, feature_name, model_name,tag):
 
     print("========= Eperiment - ", name, " =========")
     neptune.create_experiment(name)
-    neptune.append_tag([tag,df_name, feature_name, model_name, name])
+    neptune.append_tag([tag, df_name, feature_name, model_name, name])
 
     log_class_metrics(Y_test, Y_pred)
     log_confusion_matrix(Y_test, Y_pred)
@@ -404,7 +409,7 @@ def classifier_feature(datasets, models, features):
             columns=['Accuracy', 'F1-score', 'Recall', 'Precision', 'AUC'])
         #X_train, X_test, Y_train, Y_test = utills.prepare_dataset(df, df_name)
         X_train, X_test, Y_train, Y_test = train_test_split(
-        df['cleaned'], df['label'], test_size=0.3, random_state=0, stratify=df['label'].values)
+            df['cleaned'], df['label'], test_size=0.3, random_state=0, stratify=df['label'].values)
         for feature_name, feature in features.items():
             feature_result = pd.DataFrame(
                 columns=['Accuracy', 'F1-score', 'Recall', 'Precision', 'AUC'])
@@ -459,7 +464,7 @@ def result(y_test, y_pred):
            yticklabels=classes, title="Confusion matrix")
     plt.yticks(rotation=0)
     plt.show()
-#     utills.PlotRocAuc(y_test, y_pred, 'green', 'LR')
+    PlotRocAuc(y_test, y_pred, 'green', 'LR')
 
     return (accuracy, f1_score, recall, precision, auc)
 
@@ -482,7 +487,7 @@ def bow_word(X_train, X_test):
 
 
 def bow_char(X_train, X_test):
-    bow = CountVectorizer(analyzer="char", ngram_range=(3, 5), lowercase=False)
+    bow = CountVectorizer(analyzer="char", ngram_range=(3, 4), lowercase=False)
     bow.fit(X_train)
     X_train_bow = bow.transform(X_train)
     X_test_bow = bow.transform(X_test)
@@ -517,7 +522,7 @@ def tfidf_word(X_train, X_test):
 
 def tfidf_char(X_train, X_test):
     tfidf = TfidfVectorizer(
-        analyzer="char", ngram_range=(3, 5), lowercase=False)
+        analyzer="char", ngram_range=(3, 4), lowercase=False)
     X_train_tfidf = tfidf.fit_transform(X_train)
     #X_train_tfidf = tfidf.transform(X_train)
     X_test_tfidf = tfidf.transform(X_test)
@@ -589,21 +594,22 @@ def RF(X_train, X_test, Y_train):
     return Y_pred
 
 
-def word_avg_vector(model,words_list):
+def word_avg_vector(model, words_list):
     if len(words_list) < 1:  # whole sentence has no words or nan
         return np.zeros(300)
     else:
-        vectorized = [model[word] if word in model else np.random.rand(300) for word in words_list]
+        vectorized = [model[word] if word in model else np.random.rand(
+            300) for word in words_list]
     # doc = [word for word in doc if word in model.wv.index_to_key else np.random.rand(k)]
     return np.mean(vectorized, axis=0)
 
 # TODO function for word_tfidf_avg_vector
 
 
-def get_embedding(df,model):
+def get_embedding(df, model):
     # TODO add option to select TFIDF vs mean embedding
     # avg vector
-    embeddings = df.apply(lambda x: word_avg_vector(model,x))
+    embeddings = df.apply(lambda x: word_avg_vector(model, x))
 
     # tfidf weighted vector
     return list(embeddings)

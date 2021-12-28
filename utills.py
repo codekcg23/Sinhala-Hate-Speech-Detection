@@ -366,6 +366,7 @@ def PlotRocAuc(y_test, y_pred, color, model_name):
                       yaxis_title="True Positive Rate")
 
     fig.show()
+    return auc_score
 
 
 def prepare_dataset(df, name):
@@ -613,3 +614,61 @@ def get_embedding(df, model):
 
     # tfidf weighted vector
     return list(embeddings)
+
+# gives probability if two classes for one text sentence 
+def predict_proba(arr):
+    import numpy as np
+    from tensorflow.python.keras.preprocessing import sequence
+    pred=TC.model.predict(sequence.pad_sequences(TC.token.texts_to_sequences(arr),maxlen=TC.MAX_SEQ_LEN))
+    returnable=[]
+    for i in pred:
+        temp=i[0]
+        returnable.append(np.array([1-temp,temp]))
+    return np.array(returnable)
+
+# TC - text explainer
+def error_analysis(TC,model,Y_pred):
+    import numpy as np
+    from IPython.display import display
+    import matplotlib.pyplot as plt
+    import eli5
+    from eli5.lime import TextExplainer
+    import shap
+    from lime.lime_text import LimeTextExplainer
+    import tensorflow.compat.v1 as tf
+    tf.disable_v2_behavior()  # for shap
+    from tensorflow.python.keras.preprocessing import sequence
+
+    import tensorflow.keras.backend as K
+    
+    # LIME
+    lime_explainer= LimeTextExplainer(class_names=[0,1])
+    # eli5 Lime
+    te = TextExplainer(random_state=0)
+    # shap
+    distrib_samples = TC.X_train[:100]
+    explainer = shap.DeepExplainer(model, distrib_samples)
+    # explain the first 25 predictions
+    # explaining each prediction requires 2 * background dataset size runs
+    num_explanations = 25 #len(TC.X_test)
+    shap_values = explainer.shap_values(TC.X_test[:num_explanations])
+    shap.initjs()
+    num2word = {}
+    arr_index=TC.X_te.index
+    for w in TC.word_index.keys():
+        num2word[TC.word_index[w]] = w
+    x_test_words = np.stack([np.array(list(map(lambda x: num2word.get(x, "NONE"), TC.X_test[i]))) for i in range(num_explanations)])
+    i=0
+    
+    for s in TC.X_te:
+        if(i==21):
+            break
+        if(TC.Y_test[arr_index[i]] != Y_pred[i]):
+            print(s)
+            print("Predicted Label : ",TC.result_map(Y_pred[i])," | Turth Label : ",TC.result_map(TC.Y_test[arr_index[i]]))
+            te.fit(TC.X_te[arr_index[i]],predict_proba)
+            shap.force_plot(explainer.expected_value[0], shap_values[0][i], x_test_words[i],matplotlib=True)
+            display(te.show_prediction(target_names=[0,1]))
+            display(lime_explainer.explain_instance(TC.X_te[arr_index[i]],predict_proba).show_in_notebook(text=True))
+        i+=1
+        print()

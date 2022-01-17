@@ -61,7 +61,7 @@ neptune.init(project_qualified_name= NEPTUNE_PROJECT,api_token=NEPTUNE_API_TOKEN
      
 
 class TextClassifier():
-    def __init__(self,tag ="DL model",EMBEDDING="fasttext",EPOCHS=50,BATCH_SIZE=16,MAX_SEQ_LEN=100,EMBEDDING_SIZE=300,LEN_VOCAB = 20000,lr=0.0001,trainable= False):
+    def __init__(self,tag ="DL model",EMBEDDING=None,EPOCHS=50,BATCH_SIZE=16,MAX_SEQ_LEN=100,EMBEDDING_SIZE=300,LEN_VOCAB = 20000,lr=0.0001,trainable= False):
         self.EMBEDDING = EMBEDDING
         self.LEN_VOCAB = LEN_VOCAB
         self.EMBEDDING_SIZE =EMBEDDING_SIZE
@@ -74,18 +74,20 @@ class TextClassifier():
         self.df_A = self.load_data()
         self.X_tr, self.X_te, self.Y_train, self.Y_test = train_test_split(self.df_A['cleaned'], self.df_A['label'], test_size=0.3, random_state=0, stratify=self.df_A['label'].values)
         print("X train {} Y train {} X test {} Y test {}".format(self.X_tr.shape, self.Y_train.shape, self.X_te.shape, self.Y_test.shape))
-        self.vocab = self.build_vocab()
-        self.emb_model = self.load_emb_model()
-        self.embeddings_index = self.get_emb_index()
-        self.oov_words = self.check_coverage()
-        if(EMBEDDING=="fasttext"):
-            self.fasttext_OOV()
-        else:
-            self.add_stem()
-        self.oov_words = self.check_coverage()
+        if(EMBEDDING != None):
+            self.vocab = self.build_vocab()
+            self.emb_model = self.load_emb_model()
+            self.embeddings_index = self.get_emb_index()
+            self.oov_words = self.check_coverage()
+            if(EMBEDDING=="fasttext"):
+                self.fasttext_OOV()
+            else:
+                self.add_stem()
+            self.oov_words = self.check_coverage()
         self.token = Tokenizer(num_words=self.LEN_VOCAB)
         self.X_train ,self.X_test, self.word_index = self.create_sequence()
-        self.emb_matrix = self.embedding_matrix()
+        if(EMBEDDING != None):
+            self.emb_matrix = self.embedding_matrix()
         self.model = None
         self.arr_index = None
         self.hist = None
@@ -232,12 +234,20 @@ class TextClassifier():
     def get_model(self,model_type):
         print("Build ML model")
         model = Sequential()
-        model.add(Embedding(output_dim=self.EMBEDDING_SIZE, 
-                            input_dim=self.LEN_VOCAB, 
-                            input_length=self.MAX_SEQ_LEN,
-                            weights=[self.emb_matrix], # Additionally we give the Wi
-                            trainable=self.trainable)) # Don't train the embeddings - just use GloVe embeddings
-        # We can start with pre-trained embeddings and then fine-tune them using our data by setting trainable to True
+        if(self.EMBEDDING== None):
+            model.add(Embedding(output_dim=self.EMBEDDING_SIZE, 
+                                input_dim=self.LEN_VOCAB, 
+                                input_length=self.MAX_SEQ_LEN,
+                               # weights=[self.emb_matrix], # Additionally we give the Wi
+                                trainable=self.trainable))
+        
+        else:
+            model.add(Embedding(output_dim=self.EMBEDDING_SIZE, 
+                                input_dim=self.LEN_VOCAB, 
+                                input_length=self.MAX_SEQ_LEN,
+                                weights=[self.emb_matrix], # Additionally we give the Wi
+                                trainable=self.trainable)) # Don't train the embeddings - just use GloVe embeddings
+            # We can start with pre-trained embeddings and then fine-tune them using our data by setting trainable to True
         if(model_type=="RNN"):
             model.add(SimpleRNN(128, activation='relu',dropout=0.2, recurrent_dropout=0.3))
         elif(model_type == "LSTM"):
@@ -261,7 +271,7 @@ class TextClassifier():
     def train_model(self,model):
   
         #define callbacks
-        early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.01, patience=10, verbose=1,mode='min',restore_best_weights=True)
+        early_stopping = EarlyStopping(monitor='val_loss', patience=5, verbose=1,mode='min',restore_best_weights=True)
         checkpoints = ModelCheckpoint(filepath='G:/Github/Sinhala-Hate-Speech-Detection/trained_models/checkpoints/'+self.tag+'/model.h5', monitor="val_loss", mode="min", verbose=1, save_best_only=True)
         callbacks_list = [early_stopping,NeptuneMonitor(),checkpoints] #,NeptuneMonitor(),checkpoints]
 

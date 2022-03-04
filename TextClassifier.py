@@ -271,7 +271,7 @@ class TextClassifier():
     def train_model(self,model):
   
         #define callbacks
-        early_stopping = EarlyStopping(monitor='val_loss', patience=5, verbose=1,mode='min',restore_best_weights=True)
+        early_stopping = EarlyStopping(monitor='val_loss',min_delta=0.01, patience=5, verbose=1,mode='min',restore_best_weights=True)
         checkpoints = ModelCheckpoint(filepath='G:/Github/Sinhala-Hate-Speech-Detection/trained_models/checkpoints/'+self.tag+'/model.h5', monitor="val_loss", mode="min", verbose=1, save_best_only=True)
         callbacks_list = [early_stopping,NeptuneMonitor(),checkpoints] #,NeptuneMonitor(),checkpoints]
 

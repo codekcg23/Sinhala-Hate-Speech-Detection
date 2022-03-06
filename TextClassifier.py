@@ -30,7 +30,7 @@ from tensorflow.python.keras.layers.embeddings import Embedding
 from tensorflow.python.keras.preprocessing import sequence
 from tensorflow.python.keras.preprocessing.text import Tokenizer
 from keras.utils.vis_utils import plot_model
-from tensorflow.python.keras.callbacks import EarlyStopping, ModelCheckpoint
+from tensorflow.python.keras.callbacks import EarlyStopping, ModelCheckpoint,ReduceLROnPlateau
 import re
 import gensim
 from gensim.models import word2vec
@@ -61,7 +61,7 @@ neptune.init(project_qualified_name= NEPTUNE_PROJECT,api_token=NEPTUNE_API_TOKEN
      
 
 class TextClassifier():
-    def __init__(self,tag ="DL model",EMBEDDING=None,EPOCHS=50,BATCH_SIZE=16,MAX_SEQ_LEN=100,EMBEDDING_SIZE=300,LEN_VOCAB = 20000,lr=0.0001,trainable= False):
+    def __init__(self,tag ="DL model",EMBEDDING=None,EPOCHS=50,BATCH_SIZE=16,MAX_SEQ_LEN=100,EMBEDDING_SIZE=300,LEN_VOCAB = 20000,lr=0.001,trainable= False):
         self.EMBEDDING = EMBEDDING
         self.LEN_VOCAB = LEN_VOCAB
         self.EMBEDDING_SIZE =EMBEDDING_SIZE
@@ -71,6 +71,11 @@ class TextClassifier():
         self.lr = lr
         self.tag = tag
         self.trainable = trainable
+        self.unit = 64
+        self.layer = 1
+        self.dropout_rate =0.3
+        self.recurr_dropout = 0.0
+        self.activation = 'relu'
         self.df_A = self.load_data()
         self.X_tr, self.X_te, self.Y_train, self.Y_test = train_test_split(self.df_A['cleaned'], self.df_A['label'], test_size=0.3, random_state=0, stratify=self.df_A['label'].values)
         print("X train {} Y train {} X test {} Y test {}".format(self.X_tr.shape, self.Y_train.shape, self.X_te.shape, self.Y_test.shape))
@@ -231,49 +236,50 @@ class TextClassifier():
         return embedding_matrix
 
     
-    def get_model(self,model_type):
-        print("Build ML model")
-        model = Sequential()
-        if(self.EMBEDDING== None):
-            model.add(Embedding(output_dim=self.EMBEDDING_SIZE, 
-                                input_dim=self.LEN_VOCAB, 
-                                input_length=self.MAX_SEQ_LEN,
-                               # weights=[self.emb_matrix], # Additionally we give the Wi
-                                trainable=self.trainable))
+    # def get_model(self,model_type):
+    #     print("Build ML model")
+    #     model = Sequential()
+    #     if(self.EMBEDDING== None):
+    #         model.add(Embedding(output_dim=self.EMBEDDING_SIZE, 
+    #                             input_dim=self.LEN_VOCAB, 
+    #                             input_length=self.MAX_SEQ_LEN,
+    #                            # weights=[self.emb_matrix], # Additionally we give the Wi
+    #                             trainable=self.trainable))
         
-        else:
-            model.add(Embedding(output_dim=self.EMBEDDING_SIZE, 
-                                input_dim=self.LEN_VOCAB, 
-                                input_length=self.MAX_SEQ_LEN,
-                                weights=[self.emb_matrix], # Additionally we give the Wi
-                                trainable=self.trainable)) # Don't train the embeddings - just use GloVe embeddings
-            # We can start with pre-trained embeddings and then fine-tune them using our data by setting trainable to True
-        if(model_type=="RNN"):
-            model.add(SimpleRNN(128, activation='relu',dropout=0.2, recurrent_dropout=0.3))
-        elif(model_type == "LSTM"):
-            model.add(LSTM(128, activation='relu',dropout=0.2, recurrent_dropout=0.3))
-        elif(model_type == "GRU"):
-            model.add(GRU(128, activation='relu',dropout=0.2, recurrent_dropout=0.3))
-        elif(model_type == "BiLSTM"):
-            model.add(Bidirectional(LSTM(128, activation='relu',dropout=0.2, recurrent_dropout=0.3)))
-        model.add(Dropout(0.2))
-        model.add(Dense(64, activation='relu'))
-        model.add(Dropout(0.2))
-        model.add(Dense(1,activation='sigmoid'))
-        optimizer_adam = Adam(learning_rate=self.lr)
-        model.compile(loss='binary_crossentropy',
-                    optimizer=optimizer_adam,
-                    metrics=['acc'])
-        print(model.summary())
-        self.model = model
-        return model
+    #     else:
+    #         model.add(Embedding(output_dim=self.EMBEDDING_SIZE, 
+    #                             input_dim=self.LEN_VOCAB, 
+    #                             input_length=self.MAX_SEQ_LEN,
+    #                             weights=[self.emb_matrix], # Additionally we give the Wi
+    #                             trainable=self.trainable)) # Don't train the embeddings - just use GloVe embeddings
+    #         # We can start with pre-trained embeddings and then fine-tune them using our data by setting trainable to True
+    #     if(model_type=="RNN"):
+    #         model.add(SimpleRNN(128, activation='relu',dropout=0.2, recurrent_dropout=0.3))
+    #     elif(model_type == "LSTM"):
+    #         model.add(LSTM(128, activation='relu',dropout=0.2, recurrent_dropout=0.3))
+    #     elif(model_type == "GRU"):
+    #         model.add(GRU(128, activation='relu',dropout=0.2, recurrent_dropout=0.3))
+    #     elif(model_type == "BiLSTM"):
+    #         model.add(Bidirectional(LSTM(128, activation='relu',dropout=0.2, recurrent_dropout=0.3)))
+    #     model.add(Dropout(0.2))
+    #     model.add(Dense(64, activation='relu'))
+    #     model.add(Dropout(0.2))
+    #     model.add(Dense(1,activation='sigmoid'))
+    #     optimizer_adam = Adam(learning_rate=self.lr)
+    #     model.compile(loss='binary_crossentropy',
+    #                 optimizer=optimizer_adam,
+    #                 metrics=['acc'])
+    #     print(model.summary())
+    #     self.model = model
+    #     return model
 
     def train_model(self,model):
   
         #define callbacks
         early_stopping = EarlyStopping(monitor='val_loss',min_delta=0.01, patience=5, verbose=1,mode='min',restore_best_weights=True)
-        checkpoints = ModelCheckpoint(filepath='G:/Github/Sinhala-Hate-Speech-Detection/trained_models/checkpoints/'+self.tag+'/model.h5', monitor="val_loss", mode="min", verbose=1, save_best_only=True)
-        callbacks_list = [early_stopping,NeptuneMonitor(),checkpoints] #,NeptuneMonitor(),checkpoints]
+        checkpoints = ModelCheckpoint(filepath='G:/Github/Sinhala-Hate-Speech-Detection/trained_models/checkpoints/finetuned/'+self.tag+'/model.h5', monitor="val_loss", mode="min", verbose=1, save_best_only=True)
+        lr = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=3, min_lr=1e-5,mode='min', verbose=1)
+        callbacks_list = [lr,early_stopping,NeptuneMonitor(),checkpoints] #,NeptuneMonitor(),checkpoints]
 
         #model training
         print("started training")
@@ -288,10 +294,16 @@ class TextClassifier():
           'lr': self.lr,
           'batch':self.BATCH_SIZE,
           'embedding':self.EMBEDDING,
-          'emb_trainable':self.trainable
+          'emb_trainable':self.trainable,
+          'unit':self.unit,
+          'layer':self.layer,
+          'dropout_rate':self.dropout_rate,
+          'recurr_dropout':self.recurr_dropout,
+          'activation':self.activation
+
           }
         neptune.create_experiment(self.tag,params=PARAMS)
-        neptune.append_tag(['DL experiment',self.tag])
+        neptune.append_tag(['finetuned experiment',self.tag])
         
         log_class_metrics(self.Y_test, Y_pred)
         log_confusion_matrix(self.Y_test, Y_pred)
@@ -359,7 +371,7 @@ class TextClassifier():
             print("Predicted Label : ",self.result_map(Y_pred[i])," | Turth Label : ",self.result_map(self.Y_test[arr_index[i]]))
             i+=1
             print()
-        Results.to_csv("G:/Github/Sinhala-Hate-Speech-Detection/DL_models/Predictions_result/"+filename+".csv",index=False)
+        Results.to_csv("G:/Github/Sinhala-Hate-Speech-Detection/DL_models/Predictions_result/finetuned/"+filename+".csv",index=False)
         print(Results.head(n=10))
 
     # def predict_proba(self,arr):
